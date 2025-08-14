@@ -42,8 +42,6 @@ class Office31(DatasetBase):
 
         for domain, dname in enumerate(input_domains):
             domain_dir = osp.join(self.dataset_dir, dname)
-            class_names = listdir_nohidden(domain_dir)
-            class_names.sort()
             class_names = ["back_pack", "bike", "bike_helmet", "bookcase", "bottle", "calculator", "desk_chair", "desk_lamp", 
                            "desktop_computer", "file_cabinet", "headphones", "keyboard", "laptop_computer", "letter_tray", 
                            "mobile_phone", "monitor", "mouse", "mug", "paper_notebook", "pen", "phone", "printer", "projector", 

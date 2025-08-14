@@ -3,7 +3,7 @@
 cd ..
 
 # custom config
-DATA=/opt/data/private # you may change your path to dataset here
+DATA= # you may change your path to dataset here
 TRAINER=VISTA
 
 DATASET=officehome # name of the dataset
