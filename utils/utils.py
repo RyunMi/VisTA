@@ -3,6 +3,9 @@ from torch.nn import functional as F
 import numpy as np 
 
 def JSD(out1, out2):
+    """
+    Jensen-Shannon divergence (symmetric) between two outputs
+    """
     prob1 = F.softmax(out1, dim=1)
     prob2 = F.softmax(out2, dim=1)
     
@@ -15,10 +18,16 @@ def JSD(out1, out2):
 
 
 def debias(current_logit, qhat, tau=0.5):
+    """
+    debias logits, then return probabilities
+    """
     debiased_prob = F.softmax(current_logit - tau * torch.log(qhat), dim=1)
     return debiased_prob
 
 def update_qhat(probs, qhat, momentum, qhat_mask=None):
+    """
+    update qhat of class prior with momentum
+    """
     if qhat_mask is not None:
         mean_prob = probs.detach() * qhat_mask.detach().unsqueeze(dim=-1)
     else:
@@ -57,6 +66,9 @@ def grad_cam(c, feat):
     return  grad_cam[..., 1:]
 
 def ppmcc(source_maps, target_maps, rho = 0.5):
+    """
+    pairwise pearson matrix correlation coefficient
+    """
     M = source_maps.shape[0]
     N = target_maps.shape[0]
     

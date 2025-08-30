@@ -24,22 +24,26 @@ class PromptLearner(nn.Module):
     def __init__(self, cfg, class_names, clip_model, text_attr, n_ctx):
         super().__init__()
         ctx_dim = clip_model.ln_final.weight.shape[0]
+        self.ctx_dim = ctx_dim
         dtype = clip_model.dtype
         self.clip_model = clip_model
         self.class_names = [name.replace('_', ' ') for name in class_names]
         n_cls = len(self.class_names)
+        self.n_cls = n_cls 
         self.dtype = dtype
-        self.attr_L = cfg.TRAINER.VISTA.L
-        self.attr_N = cfg.TRAINER.VISTA.N
+        self.attr_L = cfg.TRAINER.VISTA.L # number of selected attribute per image
+        self.attr_N = cfg.TRAINER.VISTA.N # number of attributes in the dictionary
+        self.attr_M = n_ctx # prompt length
+        self.text_attr = text_attr  # learnable text attributes
 
         prompt_prefix =' '.join(['x'] * n_ctx * self.attr_L)
         prompts = [prompt_prefix + ' ' + name + '.' for name in self.class_names]
+
+        # naive prompts used to create fixed text embeddings
         naive_prompt_prefix = "a " + cfg.DATASET.TARGET_DOMAINS[0].replace("_", " ") + " photo of a"
         naive_prompts = [naive_prompt_prefix + " " + name + "." for name in self.class_names]
 
         self.name_lens = [len(_tokenizer.encode(name)) for name in self.class_names]
-
-        self.text_attr = text_attr
         
         tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])
         naive_tokenized_prompts = torch.cat([clip.tokenize(p) for p in naive_prompts])
@@ -47,12 +51,14 @@ class PromptLearner(nn.Module):
         self.tokenized_prompts = tokenized_prompts
         with torch.no_grad():
             embedding = clip_model.token_embedding(tokenized_prompts).type(self.dtype)
+            # encoded naive prompts (used for regularization)
             self.fixed_embeddings = clip_model.encode_text(naive_tokenized_prompts).type(self.dtype)
             
         self.register_buffer('token_prefix', embedding[:, :1, :])
         self.register_buffer('token_suffix', embedding[:, 1 + (n_ctx * self.attr_L):,:])
         self.register_buffer('cls_token_suffix', embedding[:, 1 + n_ctx:,:])
 
+        # tokenized "no-class" prompt (only prefix + '.'), used in only_prefix()
         nc_prompts = [prompt_prefix + '.']
         nc_tokenized_prompts = torch.cat([clip.tokenize(p) for p in nc_prompts])
         self.nc_tokenized_prompts = nc_tokenized_prompts
@@ -61,15 +67,12 @@ class PromptLearner(nn.Module):
         self.register_buffer('nc_token_prefix', embedding[:, :1,:])
         self.register_buffer('nc_token_suffix', embedding[:, 1 + n_ctx:,:])
 
-        self.n_cls = n_cls 
-        self.attr_M = n_ctx 
-        self.ctx_dim = ctx_dim
-
         for param in self.clip_model.parameters():
             param.requires_grad = False
 
     @autocast()
     def forward(self, indices_s, indices_t):
+        # construct prompt embeddings for selected attribute indices of source and target domains.
         if indices_s != None:
             batch_s = indices_s.shape[0]
             selected_prompts_s = self.text_attr[indices_s]
@@ -80,6 +83,7 @@ class PromptLearner(nn.Module):
 
         tokenized_prompts = self.tokenized_prompts.view(self.n_cls, -1)
 
+        # prefix + ctx + suffix
         if indices_s != None:
             prefix_s = self.token_prefix.unsqueeze(0).repeat(batch_s,1,1,1)
             suffix_s = self.token_suffix.unsqueeze(0).repeat(batch_s,1,1,1)
@@ -102,6 +106,7 @@ class PromptLearner(nn.Module):
             return prompts_s, prompts_t, tokenized_prompts_s, tokenized_prompts_t
 
     def only_prefix(self, target):
+        # construct prompts that no [CLS].
         ctx = self.text_attr[self.attr_N:] if target else self.text_attr[:self.attr_N]
         prompt_size = ctx.shape[0]
         nc_tokenized_prompts = self.nc_tokenized_prompts.repeat(prompt_size, 1)
@@ -133,6 +138,7 @@ class CustomCLIP(nn.Module):
     @autocast()
     def forward(self, image_s, image_t, test=False, cluster=False):
         if cluster:
+            # return only image features for clustering
             with torch.no_grad():
                 image_features_s = self.image_encoder(image_s)
                 image_features_s = image_features_s / image_features_s.norm(dim=-1, keepdim=True)
@@ -142,6 +148,7 @@ class CustomCLIP(nn.Module):
                 image_features_t = image_features_t.detach()
             return image_features_s, image_features_t
         else:
+            # standard forward
             if not test:
                 image_features_s, last_feat_s = self.image_encoder(image_s, return_feat=True)
                 image_features_s = image_features_s / image_features_s.norm(dim=-1, keepdim=True)
@@ -149,6 +156,7 @@ class CustomCLIP(nn.Module):
             image_features_t = image_features_t / image_features_t.norm(dim=-1, keepdim=True)
         
         if test:
+            # target images pick top-L target visual attributes for inference
             image_features_t = image_features_t.detach()
             probability = image_features_t @ self.vis_attr[self.num_prompt:].t()
             _, indices = probability.topk(k=min(self.attr_L, probability.shape[1]), dim=1, largest=True)
@@ -191,11 +199,13 @@ class CustomCLIP(nn.Module):
             indices_st = torch.zeros(image_features_s.shape[0], self.attr_L, dtype = torch.int)
             indices_ts = torch.zeros(image_features_t.shape[0], self.attr_L, dtype = torch.int)
 
+            # compute grad-cam used to select cross-domain attributes
             grad_emaps_ss = grad_cam(cosine_ss[torch.arange(cosine_ss.shape[0]).unsqueeze(1), indices_ss], last_feat_s)
             grad_emaps_tt = grad_cam(cosine_tt[torch.arange(cosine_tt.shape[0]).unsqueeze(1), indices_tt], last_feat_t)
             grad_emaps_st = grad_cam(cosine_st, last_feat_s)
             grad_emaps_ts = grad_cam(cosine_ts, last_feat_t)
 
+            # match heatmaps from different attribute dictionary
             for i in range(image_features_s.shape[0]):
                 indices_st[i,:] = ppmcc(grad_emaps_ss[i,...], grad_emaps_st[i,...])
                 indices_ts[i,:] = ppmcc(grad_emaps_tt[i,...], grad_emaps_ts[i,...])
@@ -221,6 +231,8 @@ class CustomCLIP(nn.Module):
 
             fixed_embeddings = self.prompt_learner.fixed_embeddings.unsqueeze(0).expand(mapping_ss.shape[0], -1, -1)
             fixed_embeddings = fixed_embeddings / fixed_embeddings.norm(dim=-1, keepdim=True)
+
+            # loss to enhance the generalization capacity of source textual attributes
             loss_hp = F.l1_loss(text_features_s[mapping_ss], fixed_embeddings.to('cuda:0'), reduction='mean') 
 
             image_features_s = image_features_s.unsqueeze(1)
@@ -228,6 +240,7 @@ class CustomCLIP(nn.Module):
 
             logit_scale = self.logit_scale.exp()
 
+            # logits correspond to different image/text combinations
             logits_ss = logit_scale * (image_features_s * text_features_s[mapping_ss]).sum(-1)
             logits_st = logit_scale * (image_features_s * text_features_t[mapping_st]).sum(-1)
             logits_ts = logit_scale * (image_features_t * text_features_s[mapping_ts]).sum(-1)
@@ -235,6 +248,8 @@ class CustomCLIP(nn.Module):
 
             dis_s = nc_text_features_s @ nc_text_features_s.permute(1, 0)
             dis_t = nc_text_features_t @ nc_text_features_t.permute(1, 0)
+
+            # diversity loss among textual attributes
             loss_div = dis_s[~torch.eye(self.num_prompt, dtype=torch.bool)].abs().mean() \
                      + dis_t[~torch.eye(self.num_prompt, dtype=torch.bool)].abs().mean()
 
@@ -347,6 +362,10 @@ class VISTA(TrainerXU):
             self.qhat = (torch.ones([1, len(self.dm.dataset.classnames)], dtype=torch.float)/len(self.dm.dataset.classnames)).to('cuda:0')
 
     def run_epoch(self):
+        """
+        Run one epoch of training:
+            if epoch == 0: gather features for kmeans++ initialization/updates
+        """
         self.set_model_mode("train")
         losses = MetricMeter()
         batch_time = AverageMeter()
@@ -475,9 +494,11 @@ class VISTA(TrainerXU):
             with autocast():
                 output_ss, output_st, output_ts, output_tt, loss_div, loss_hp = self.model(image_x, image_u)
 
+                # supervised loss on source labeled data
                 loss_s = F.cross_entropy(output_ss, label)
                 
                 if self.cfg.TRAINER.VISTA.DEBIASPL:
+                    # debiased pseudo-labeling
                     probs_tt = debias(output_tt, self.qhat, tau=self.cfg.TRAINER.VISTA.TAU)
                 else:
                     probs_tt = torch.softmax(output_tt, dim=-1)
@@ -486,12 +507,14 @@ class VISTA(TrainerXU):
                 max_probs, label_p = torch.max(probs_tt, dim=-1)
                 mask_ge = max_probs.ge(gamma).float()
 
-                if not self.cfg.TRAINER.VISTA.DEBIASPL:
+                if self.cfg.TRAINER.VISTA.DEBIASPL:
                     self.qhat = update_qhat(torch.softmax(output_tt.detach(), dim=-1), self.qhat, momentum=0.99, qhat_mask=mask_ge)
 
+                # target loss: only include pseudo-labeled examples with high confidence
                 loss_t = torch.tensor(0.0, device=self.device) if mask_ge.sum() == 0 \
                 else (F.cross_entropy(output_tt, label_p, reduction='none') * mask_ge).sum() / mask_ge.sum()
 
+                # prediction consistency loss (Jensen-Shannon divergence)
                 loss_con = JSD(output_tt, output_ts) + JSD(output_ss, output_st)
                 
                 loss = loss_s + loss_t + lam_1 * loss_con + lam_2 * loss_hp + lam_3 * loss_div
