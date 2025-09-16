@@ -3,21 +3,22 @@
 <p align="center">
   <strong>Official implementation of VisTA framework.</strong><br>
   ACM International Conference on Multimedia (ACM MM), 2025
-  
+</p>
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2509.11264"><img src="https://img.shields.io/badge/arXiv-2509.11264-b31b1b.svg" alt="arXiv"></a>
 </p>
 
 ---
 
 ## Overview
-This repository introduces **VisTA**, a rehearsal-free framework for Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**):
-
-- VisTA leverages CLIP to mine and preserve domain-invariant and class-agnostic knowledge to facilitate CI-UDA.
-
-- VisTA effectively reduces catastrophic forgetting while mitigating the domain shift, guided by an Attribute Modeling module, a Visual Attention Consistency module, and a Prediction Consistency loss.
+This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**) method built on the large-scale vision-language model CLIP. VisTA respectively constructs an attribute dictionary for source domain and target domain, and encourages Visual Attention Consistency and Prediction Consistency to learn domain-invariant attributes. Experiments show that VisTA effectively reduces catastrophic forgetting while mitigating domain shift.
 
 <div align="center">
   <img src="assets/VisTA.png" width="900px" />
 </div>
+
+The full paper with **Supplementary Materials** is available [here](https://arxiv.org/abs/2509.11264).
 
 ## Installation 
 Our code is implemented in Python (version >= 3.8) with PyTorch (version >= 1.11.0). Please follow the steps below to configure dependencies:
@@ -55,10 +56,6 @@ sh scripts/officehome.sh
 # Training on Mini-DomainNet
 sh scripts/minidomainnet.sh
 ```
-
-## Appendix
-
-The supplementary materials are available [here](https://github.com/RyunMi/VisTA/blob/main/assets/Supplementary.pdf).
 
 ## Citation
 If you find the code useful in your research, please consider citing:

@@ -61,7 +61,7 @@ def batched_jacobian(batched_y:torch.Tensor,batched_x:torch.Tensor,need_higher_g
     return J
 
 def grad_cam(c, feat):
-    grad = batched_jacobian(c, feat)
+    grad = batched_jacobian(c, feat).to(feat.device)
     grad_cam = F.relu_((grad.mean(2, keepdim = True) * feat.unsqueeze(1)).sum(-1))
     return  grad_cam[..., 1:]
 

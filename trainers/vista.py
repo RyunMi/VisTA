@@ -126,14 +126,16 @@ class CustomCLIP(nn.Module):
 
         # text enoder
         self.text_encoder = TextEncoder(clip_model)
-        if torch.cuda.device_count() > 1:
-            self.text_encoder = nn.DataParallel(self.text_encoder,device_ids=[0,1])
         self.prompt_learner = PromptLearner(cfg, class_names, clip_model, text_attr, n_ctx=n_ctx)
         self.vis_attr = vis_attr
 
         # image encoder
         self.image_encoder = ImageEncoder(clip_model)
         self.logit_scale = clip_model.logit_scale
+
+        if torch.cuda.device_count() > 1:
+            self.text_encoder = nn.DataParallel(self.text_encoder)
+            self.image_encoder = nn.DataParallel(self.image_encoder)
 
     @autocast()
     def forward(self, image_s, image_t, test=False, cluster=False):
@@ -277,8 +279,11 @@ class VISTA(TrainerXU):
     def build_model(self):
         cfg = self.cfg
         classnames = self.dm.dataset.classnames
-        device_ids = [0,1]
+
+        cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+        device_ids = [int(gpu_id.strip()) for gpu_id in cuda_visible.split(',')]
         self.device = device_ids[0]
+        
         print(f"Loading CLIP (backbone: {cfg.MODEL.BACKBONE.NAME})")
         clip_model = load_clip_to_cpu(cfg)
 
@@ -312,7 +317,6 @@ class VISTA(TrainerXU):
                 param.requires_grad_(True)
             
         self.model.to(self.device)
-        # transform the epoch to step schedule
 
         # NOTE: only give prompt_learner to the optimizer
         self.optim = build_optimizer(self.model.prompt_learner, cfg.OPTIM)#param_groups=param_groups
