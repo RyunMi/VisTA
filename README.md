@@ -7,12 +7,16 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2509.11264"><img src="https://img.shields.io/badge/arXiv-2509.11264-b31b1b.svg" alt="arXiv"></a>
+  &nbsp;
+  <a href="https://dl.acm.org/doi/10.1145/3746027.3755184">
+    <img src="https://img.shields.io/badge/ACM%20Multimedia-2025-blue?logo=acm&logoColor=white" alt="ACM Multimedia">
+  </a>
 </p>
 
 ---
 
 ## Overview
-This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**) method built on the large-scale vision-language model CLIP. VisTA respectively constructs an attribute dictionary for source domain and target domain, and encourages Visual Attention Consistency and Prediction Consistency to learn domain-invariant attributes. Experiments show that VisTA effectively reduces catastrophic forgetting while mitigating domain shift.
+This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**) method built on the large-scale vision-language model CLIP. VisTA respectively constructs an attribute dictionary for source domain and target domain, and encourages Visual Attention Consistency and Prediction Consistency to learn domain-invariant attributes. Experiments show that VisTA effectively reduces catastrophic forgetting and mitigate domain shift.
 
 <div align="center">
   <img src="assets/VisTA.png" width="900px" />
@@ -61,12 +65,12 @@ sh scripts/minidomainnet.sh
 If you find the code useful in your research, please consider citing:
 
 ```bibtex
-@inproceedings{VISTA,
+@inproceedings{10.1145/3746027.3755184,
 author = {Mi, Kerun and Kang, Guoliang and Li, Guangyu and Zhao, Lin and Zhou, Tao and Gong, Chen},
 title = {Cross-Domain Attribute Alignment with CLIP: A Rehearsal-Free Approach for Class-Incremental Unsupervised Domain Adaptation},
 year = {2025},
 booktitle = {Proceedings of the 33rd ACM International Conference on Multimedia},
-pages = {},
+pages = {7883–7892},
 numpages = {10},
 series = {MM '25}
 }
