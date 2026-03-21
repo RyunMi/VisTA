@@ -16,7 +16,8 @@
 ---
 
 ## Overview
-This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**) method built on the large-scale vision-language model CLIP. VisTA respectively constructs an attribute dictionary for source domain and target domain, and encourages Visual Attention Consistency and Prediction Consistency to learn domain-invariant attributes. Experiments show that VisTA effectively reduces catastrophic forgetting and mitigate domain shift.
+
+This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsupervised Domain Adaptation (**CI-UDA**) method built on the large-scale vision-language model CLIP. VisTA respectively constructs an attribute dictionary for source domain and target domain, and encourages Visual Attention Consistency and Prediction Consistency to learn domain-invariant attributes. Experiments show that VisTA effectively reduces catastrophic forgetting and mitigates domain shift.
 
 <div align="center">
   <img src="assets/VisTA.png" width="900px" />
@@ -24,8 +25,10 @@ This repository introduces **VisTA**, a rehearsal-free Class-Incremental Unsuper
 
 The full paper with **Supplementary Materials** is available [here](https://arxiv.org/abs/2509.11264).
 
-## Installation 
-Our code is implemented in Python (version >= 3.8) with PyTorch (version >= 1.11.0). Please follow the steps below to configure dependencies:
+## Installation
+
+Our code is implemented in Python (version >= 3.8) with PyTorch (version >= 1.11.0). Please follow the steps below to install the dependencies:
+
 ```bash
 # Install CLIP
 git clone https://github.com/openai/CLIP.git
@@ -45,9 +48,11 @@ pip install -r requirements.txt
 ```
 
 ## Datasets
+
 Please follow the [instructions](https://github.com/KaiyangZhou/Dassl.pytorch/blob/master/DATASETS.md) to prepare three datasets for CI-UDA: Office-31, Office-Home, and Mini-DomainNet. After preparing the datasets, please update the `DATA` variable in `scripts/{dataset}.sh` accordingly.
 
 ## Training
+
 For CI-UDA, we provide scripts to run experiments:
 
 ```bash
@@ -61,11 +66,14 @@ sh scripts/officehome.sh
 sh scripts/minidomainnet.sh
 ```
 
+> Note: Set `MODEL.BACKBONE.NAME` in `configs/trainers/VisTA/*.yaml` to switch visual encoders. The `.pt` weights will auto-download to `assets/`.
+
 ## Citation
+
 If you find the code useful in your research, please consider citing:
 
 ```bibtex
-@inproceedings{10.1145/3746027.3755184,
+@inproceedings{mi2025vista,
 author = {Mi, Kerun and Kang, Guoliang and Li, Guangyu and Zhao, Lin and Zhou, Tao and Gong, Chen},
 title = {Cross-Domain Attribute Alignment with CLIP: A Rehearsal-Free Approach for Class-Incremental Unsupervised Domain Adaptation},
 year = {2025},
@@ -78,7 +86,7 @@ series = {MM '25}
 
 ## Acknowledgments
 
-Thanks sincerely for the following projects:
+We would like to acknowledge the following projects:
 
 [CoOp](https://github.com/KaiyangZhou/CoOp)
 
